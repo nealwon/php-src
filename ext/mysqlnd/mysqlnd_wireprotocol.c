@@ -538,7 +538,7 @@ size_t php_mysqlnd_auth_write(void * _packet)
 			DBG_RETURN(0);
 		}
 
-		int1store(p, packet->auth_data_len);
+		int1store(p, (int8_t)packet->auth_data_len);
 		++p;
 /*!!!!! is the buffer big enough ??? */
 		if (sizeof(buffer) < (packet->auth_data_len + (p - buffer))) {
@@ -1354,8 +1354,8 @@ php_mysqlnd_rset_field_read(void * _packet)
 		len != MYSQLND_NULL_LENGTH)
 	{
 		BAIL_IF_NO_MORE_DATA;
-		DBG_INF_FMT("Def found, length %lu, persistent=%u", len, packet->persistent_alloc);
-		meta->def = mnd_pemalloc(len + 1, packet->persistent_alloc);
+		DBG_INF_FMT("Def found, length %lu", len);
+		meta->def = mnd_emalloc(len + 1);
 		if (!meta->def) {
 			SET_OOM_ERROR(error_info);
 			DBG_RETURN(FAIL);
@@ -1366,7 +1366,7 @@ php_mysqlnd_rset_field_read(void * _packet)
 		p += len;
 	}
 
-	root_ptr = meta->root = mnd_pemalloc(total_len, packet->persistent_alloc);
+	root_ptr = meta->root = mnd_emalloc(total_len);
 	if (!root_ptr) {
 		SET_OOM_ERROR(error_info);
 		DBG_RETURN(FAIL);
@@ -1375,7 +1375,7 @@ php_mysqlnd_rset_field_read(void * _packet)
 	meta->root_len = total_len;
 
 	if (meta->name != mysqlnd_empty_string) {
-		meta->sname = zend_string_init(meta->name, meta->name_length, packet->persistent_alloc);
+		meta->sname = zend_string_init_interned(meta->name, meta->name_length, 0);
 	} else {
 		meta->sname = ZSTR_EMPTY_ALLOC();
 	}
@@ -1418,7 +1418,7 @@ php_mysqlnd_rset_field_read(void * _packet)
 		root_ptr++;
 	}
 
-	DBG_INF_FMT("allocing root. persistent=%u", packet->persistent_alloc);
+	DBG_INF_FMT("allocing root.");
 
 	DBG_INF_FMT("FIELD=[%s.%s.%s]", meta->db? meta->db:"*NA*", meta->table? meta->table:"*NA*",
 				meta->name? meta->name:"*NA*");
@@ -1460,7 +1460,7 @@ php_mysqlnd_read_row_ex(MYSQLND_PFC * pfc,
 						MYSQLND_ERROR_INFO * error_info,
 						MYSQLND_MEMORY_POOL * pool,
 						MYSQLND_MEMORY_POOL_CHUNK ** buffer,
-						size_t * data_size, zend_bool persistent_alloc)
+						size_t * data_size)
 {
 	enum_func_status ret = PASS;
 	MYSQLND_PACKET_HEADER header;
@@ -1761,11 +1761,15 @@ php_mysqlnd_rowp_read_text_protocol_aux(MYSQLND_MEMORY_POOL_CHUNK * row_buffer, 
 				if (Z_TYPE_P(current_field) == IS_LONG && !as_int_or_float) {
 					/* we are using the text protocol, so convert to string */
 					char tmp[22];
-					const size_t tmp_len = sprintf((char *)&tmp, MYSQLND_LLU_SPEC, Z_LVAL_P(current_field));
+					const size_t tmp_len = sprintf((char *)&tmp, MYSQLND_LLU_SPEC, (uint64_t) Z_LVAL_P(current_field));
 					ZVAL_STRINGL(current_field, tmp, tmp_len);
 				} else if (Z_TYPE_P(current_field) == IS_STRING) {
 					/* nothing to do here, as we want a string and ps_fetch_from_1_to_8_bytes() has given us one */
 				}
+			} else if (len == 0) {
+				ZVAL_EMPTY_STRING(current_field);
+			} else if (len == 1) {
+				ZVAL_INTERNED_STR(current_field, ZSTR_CHAR((zend_uchar)*(char *)p));
 			} else {
 				ZVAL_STRINGL(current_field, (char *)p, len);
 			}
@@ -1826,8 +1830,7 @@ php_mysqlnd_rowp_read(void * _packet)
 	DBG_ENTER("php_mysqlnd_rowp_read");
 
 	ret = php_mysqlnd_read_row_ex(pfc, vio, stats, error_info,
-								  packet->result_set_memory_pool, &packet->row_buffer, &data_size,
-								  packet->persistent_alloc);
+								  packet->result_set_memory_pool, &packet->row_buffer, &data_size);
 	if (FAIL == ret) {
 		goto end;
 	}
@@ -1892,8 +1895,7 @@ php_mysqlnd_rowp_read(void * _packet)
 				  but mostly like old-API unbuffered and thus will populate this array with
 				  value.
 				*/
-				packet->fields = mnd_pecalloc(packet->field_count, sizeof(zval),
-														packet->persistent_alloc);
+				packet->fields = mnd_ecalloc(packet->field_count, sizeof(zval));
 			}
 		} else {
 			MYSQLND_INC_CONN_STATISTIC(stats,
@@ -2792,8 +2794,7 @@ MYSQLND_METHOD(mysqlnd_protocol, send_command_handle_OK)(
 						MYSQLND_ERROR_INFO * const error_info,
 						MYSQLND_UPSERT_STATUS * const upsert_status,
 						const zend_bool ignore_upsert_status,  /* actually used only by LOAD DATA. COM_QUERY and COM_EXECUTE handle the responses themselves */
-						MYSQLND_STRING * const last_message,
-						const zend_bool last_message_persistent)
+						MYSQLND_STRING * const last_message)
 {
 	enum_func_status ret = FAIL;
 	MYSQLND_PACKET_OK * ok_response = payload_decoder_factory->m.get_ok_packet(payload_decoder_factory, FALSE);
@@ -2826,8 +2827,7 @@ MYSQLND_METHOD(mysqlnd_protocol, send_command_handle_OK)(
 		UPSERT_STATUS_SET_AFFECTED_ROWS_TO_ERROR(upsert_status);
 	} else {
 		SET_NEW_MESSAGE(last_message->s, last_message->l,
-						ok_response->message, ok_response->message_len,
-						last_message_persistent);
+						ok_response->message, ok_response->message_len);
 		if (!ignore_upsert_status) {
 			UPSERT_STATUS_RESET(upsert_status);
 			UPSERT_STATUS_SET_WARNINGS(upsert_status, ok_response->warning_count);
@@ -2898,8 +2898,7 @@ MYSQLND_METHOD(mysqlnd_protocol, send_command_handle_response)(
 
 		MYSQLND_ERROR_INFO	* error_info,
 		MYSQLND_UPSERT_STATUS * upsert_status,
-		MYSQLND_STRING * last_message,
-		zend_bool last_message_persistent
+		MYSQLND_STRING * last_message
 	)
 {
 	enum_func_status ret = FAIL;
@@ -2909,7 +2908,7 @@ MYSQLND_METHOD(mysqlnd_protocol, send_command_handle_response)(
 
 	switch (ok_packet) {
 		case PROT_OK_PACKET:
-			ret = payload_decoder_factory->m.send_command_handle_OK(payload_decoder_factory, error_info, upsert_status, ignore_upsert_status, last_message, last_message_persistent);
+			ret = payload_decoder_factory->m.send_command_handle_OK(payload_decoder_factory, error_info, upsert_status, ignore_upsert_status, last_message);
 			break;
 		case PROT_EOF_PACKET:
 			ret = payload_decoder_factory->m.send_command_handle_EOF(payload_decoder_factory, error_info, upsert_status);

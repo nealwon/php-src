@@ -1133,14 +1133,12 @@ static HashTable *sxe_get_prop_hash(zval *object, int is_debug) /* {{{ */
 	sxe = Z_SXEOBJ_P(object);
 
 	if (is_debug) {
-		ALLOC_HASHTABLE(rv);
-		zend_hash_init(rv, 0, NULL, ZVAL_PTR_DTOR, 0);
+		rv = zend_new_array(0);
 	} else if (sxe->properties) {
 		zend_hash_clean(sxe->properties);
 		rv = sxe->properties;
 	} else {
-		ALLOC_HASHTABLE(rv);
-		zend_hash_init(rv, 0, NULL, ZVAL_PTR_DTOR, 0);
+		rv = zend_new_array(0);
 		sxe->properties = rv;
 	}
 
@@ -1352,9 +1350,9 @@ SXE_METHOD(xpath)
 
 	result = retval->nodesetval;
 
-	array_init(return_value);
-
 	if (result != NULL) {
+		array_init(return_value);
+
 		for (i = 0; i < result->nodeNr; ++i) {
 			nodeptr = result->nodeTab[i];
 			if (nodeptr->type == XML_TEXT_NODE || nodeptr->type == XML_ELEMENT_NODE || nodeptr->type == XML_ATTRIBUTE_NODE) {
@@ -1374,6 +1372,8 @@ SXE_METHOD(xpath)
 				add_next_index_zval(return_value, &value);
 			}
 		}
+	} else {
+		ZVAL_EMPTY_ARRAY(return_value);
 	}
 
 	xmlXPathFreeObject(retval);
@@ -2309,16 +2309,16 @@ SXE_METHOD(__construct)
 	}
 
 	if (ZEND_SIZE_T_INT_OVFL(data_len)) {
-		php_error_docref(NULL, E_WARNING, "Data is too long");
-		RETURN_FALSE;
+		zend_throw_exception(zend_ce_exception, "Data is too long", 0);
+		return;
 	}
 	if (ZEND_SIZE_T_INT_OVFL(ns_len)) {
-		php_error_docref(NULL, E_WARNING, "Namespace is too long");
-		RETURN_FALSE;
+		zend_throw_exception(zend_ce_exception, "Namespace is too long", 0);
+		return;
 	}
 	if (ZEND_LONG_EXCEEDS_INT(options)) {
-		php_error_docref(NULL, E_WARNING, "Invalid options");
-		RETURN_FALSE;
+		zend_throw_exception(zend_ce_exception, "Invalid options", 0);
+		return;
 	}
 
 	docp = is_url ? xmlReadFile(data, NULL, (int)options) : xmlReadMemory(data, (int)data_len, NULL, NULL, (int)options);

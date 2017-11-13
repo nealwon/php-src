@@ -476,7 +476,7 @@ static zend_always_inline double _zend_get_nan(void) /* {{{ */
 #define ZEND_STRL(str)		(str), (sizeof(str)-1)
 #define ZEND_STRS(str)		(str), (sizeof(str))
 #define ZEND_NORMALIZE_BOOL(n)			\
-	((n) ? (((n)>0) ? 1 : -1) : 0)
+	((n) ? (((n)<0) ? -1 : 1) : 0)
 #define ZEND_TRUTH(x)		((x) ? 1 : 0)
 #define ZEND_LOG_XOR(a, b)		(ZEND_TRUTH(a) ^ ZEND_TRUTH(b))
 
@@ -498,6 +498,18 @@ static zend_always_inline double _zend_get_nan(void) /* {{{ */
 #define ZEND_VALID_SOCKET(sock) ((sock) >= 0)
 #endif
 
+/* va_copy() is __va_copy() in old gcc versions.
+ * According to the autoconf manual, using
+ * memcpy(&dst, &src, sizeof(va_list))
+ * gives maximum portability. */
+#ifndef va_copy
+# ifdef __va_copy
+#  define va_copy(dest, src) __va_copy((dest), (src))
+# else
+#  define va_copy(dest, src) memcpy(&(dest), &(src), sizeof(va_list))
+# endif
+#endif
+
 #endif /* ZEND_PORTABILITY_H */
 
 /*
@@ -506,4 +518,6 @@ static zend_always_inline double _zend_get_nan(void) /* {{{ */
  * c-basic-offset: 4
  * indent-tabs-mode: t
  * End:
+ * vim600: sw=4 ts=4 fdm=marker
+ * vim<600: sw=4 ts=4
  */

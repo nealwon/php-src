@@ -120,12 +120,12 @@ PHPAPI int php_stream_from_persistent_id(const char *persistent_id, php_stream *
 				*stream = (php_stream*)le->ptr;
 				ZEND_HASH_FOREACH_PTR(&EG(regular_list), regentry) {
 					if (regentry->ptr == le->ptr) {
-						GC_REFCOUNT(regentry)++;
+						GC_ADDREF(regentry);
 						(*stream)->res = regentry;
 						return PHP_STREAM_PERSISTENT_SUCCESS;
 					}
 				} ZEND_HASH_FOREACH_END();
-				GC_REFCOUNT(le)++;
+				GC_ADDREF(le);
 				(*stream)->res = zend_register_resource(*stream, le_pstream);
 			}
 			return PHP_STREAM_PERSISTENT_SUCCESS;
@@ -296,12 +296,7 @@ fprintf(stderr, "stream_alloc: %s:%p persistent=%s\n", ops->label, ret, persiste
 	}
 
 	if (persistent_id) {
-		zval tmp;
-
-		ZVAL_NEW_PERSISTENT_RES(&tmp, -1, ret, le_pstream);
-
-		if (NULL == zend_hash_str_update(&EG(persistent_list), persistent_id,
-					strlen(persistent_id), &tmp)) {
+		if (NULL == zend_register_persistent_resource(persistent_id, strlen(persistent_id), ret, le_pstream)) {
 			pefree(ret, 1);
 			return NULL;
 		}
@@ -405,10 +400,9 @@ PHPAPI int _php_stream_free(php_stream *stream, int close_options) /* {{{ */
 		php_stream *enclosing_stream = stream->enclosing_stream;
 		stream->enclosing_stream = NULL;
 		/* we force PHP_STREAM_CALL_DTOR because that's from where the
-		 * enclosing stream can free this stream. We remove rsrc_dtor because
-		 * we want the enclosing stream to be deleted from the resource list */
+		 * enclosing stream can free this stream. */
 		return php_stream_free(enclosing_stream,
-			(close_options | PHP_STREAM_FREE_CALL_DTOR) & ~PHP_STREAM_FREE_RSRC_DTOR);
+			(close_options | PHP_STREAM_FREE_CALL_DTOR | PHP_STREAM_FREE_KEEP_RSRC) & ~PHP_STREAM_FREE_RSRC_DTOR);
 	}
 
 	/* if we are releasing the stream only (and preserving the underlying handle),
@@ -502,43 +496,13 @@ fprintf(stderr, "stream_free: %s:%p[%s] preserve_handle=%d release_cast=%d remov
 			/* we don't work with *stream but need its value for comparison */
 			zend_hash_apply_with_argument(&EG(persistent_list), _php_stream_free_persistent, stream);
 		}
-#if ZEND_DEBUG
-		if ((close_options & PHP_STREAM_FREE_RSRC_DTOR) && (stream->__exposed == 0) && (EG(error_reporting) & E_WARNING)) {
-			/* it leaked: Lets deliberately NOT pefree it so that the memory manager shows it
-			 * as leaked; it will log a warning, but lets help it out and display what kind
-			 * of stream it was. */
-			if (!CG(unclean_shutdown)) {
-				char *leakinfo;
-				spprintf(&leakinfo, 0, __FILE__ "(%d) : Stream of type '%s' %p (path:%s) was not closed\n", __LINE__, stream->ops->label, stream, stream->orig_path);
 
-				if (stream->orig_path) {
-					pefree(stream->orig_path, stream->is_persistent);
-					stream->orig_path = NULL;
-				}
-
-# if defined(PHP_WIN32)
-				OutputDebugString(leakinfo);
-# else
-				fprintf(stderr, "%s", leakinfo);
-# endif
-				efree(leakinfo);
-			}
-		} else {
-			if (stream->orig_path) {
-				pefree(stream->orig_path, stream->is_persistent);
-				stream->orig_path = NULL;
-			}
-
-			pefree(stream, stream->is_persistent);
-		}
-#else
 		if (stream->orig_path) {
 			pefree(stream->orig_path, stream->is_persistent);
 			stream->orig_path = NULL;
 		}
 
 		pefree(stream, stream->is_persistent);
-#endif
 	}
 
 	if (context) {
@@ -741,7 +705,7 @@ PHPAPI size_t _php_stream_read(php_stream *stream, char *buf, size_t size)
 		}
 
 		/* just break anyway, to avoid greedy read */
-		if (stream->wrapper != &php_plain_files_wrapper) {
+		if (!stream->wrapper || stream->wrapper->is_url) {
 			break;
 		}
 	}
@@ -1701,12 +1665,17 @@ static inline int php_stream_wrapper_scheme_validate(const char *protocol, unsig
 PHPAPI int php_register_url_stream_wrapper(const char *protocol, php_stream_wrapper *wrapper)
 {
 	unsigned int protocol_len = (unsigned int)strlen(protocol);
+	int ret;
+	zend_string *str;
 
 	if (php_stream_wrapper_scheme_validate(protocol, protocol_len) == FAILURE) {
 		return FAILURE;
 	}
 
-	return zend_hash_str_add_ptr(&url_stream_wrappers_hash, protocol, protocol_len, wrapper) ? SUCCESS : FAILURE;
+	str = zend_string_init_interned(protocol, protocol_len, 1);
+	ret = zend_hash_add_ptr(&url_stream_wrappers_hash, str, wrapper) ? SUCCESS : FAILURE;
+	zend_string_release(str);
+	return ret;
 }
 
 PHPAPI int php_unregister_url_stream_wrapper(const char *protocol)
@@ -1717,16 +1686,14 @@ PHPAPI int php_unregister_url_stream_wrapper(const char *protocol)
 static void clone_wrapper_hash(void)
 {
 	ALLOC_HASHTABLE(FG(stream_wrappers));
-	zend_hash_init(FG(stream_wrappers), zend_hash_num_elements(&url_stream_wrappers_hash), NULL, NULL, 1);
+	zend_hash_init(FG(stream_wrappers), zend_hash_num_elements(&url_stream_wrappers_hash), NULL, NULL, 0);
 	zend_hash_copy(FG(stream_wrappers), &url_stream_wrappers_hash, NULL);
 }
 
 /* API for registering VOLATILE wrappers */
-PHPAPI int php_register_url_stream_wrapper_volatile(const char *protocol, php_stream_wrapper *wrapper)
+PHPAPI int php_register_url_stream_wrapper_volatile(zend_string *protocol, php_stream_wrapper *wrapper)
 {
-	unsigned int protocol_len = (unsigned int)strlen(protocol);
-
-	if (php_stream_wrapper_scheme_validate(protocol, protocol_len) == FAILURE) {
+	if (php_stream_wrapper_scheme_validate(ZSTR_VAL(protocol), ZSTR_LEN(protocol)) == FAILURE) {
 		return FAILURE;
 	}
 
@@ -1734,16 +1701,16 @@ PHPAPI int php_register_url_stream_wrapper_volatile(const char *protocol, php_st
 		clone_wrapper_hash();
 	}
 
-	return zend_hash_str_add_ptr(FG(stream_wrappers), protocol, protocol_len, wrapper) ? SUCCESS : FAILURE;
+	return zend_hash_add_ptr(FG(stream_wrappers), protocol, wrapper) ? SUCCESS : FAILURE;
 }
 
-PHPAPI int php_unregister_url_stream_wrapper_volatile(const char *protocol)
+PHPAPI int php_unregister_url_stream_wrapper_volatile(zend_string *protocol)
 {
 	if (!FG(stream_wrappers)) {
 		clone_wrapper_hash();
 	}
 
-	return zend_hash_str_del(FG(stream_wrappers), protocol, strlen(protocol));
+	return zend_hash_del(FG(stream_wrappers), protocol);
 }
 /* }}} */
 
@@ -2027,7 +1994,7 @@ PHPAPI php_stream *_php_stream_open_wrapper_ex(const char *path, const char *mod
 	}
 
 	if (options & USE_PATH) {
-		resolved_path = zend_resolve_path(path, (int)strlen(path));
+		resolved_path = zend_resolve_path(path, strlen(path));
 		if (resolved_path) {
 			path = ZSTR_VAL(resolved_path);
 			/* we've found this file, don't re-check include_path or run realpath */
@@ -2158,7 +2125,7 @@ PHPAPI php_stream_context *php_stream_context_set(php_stream *stream, php_stream
 
 	if (context) {
 		stream->ctx = context->res;
-		GC_REFCOUNT(context->res)++;
+		GC_ADDREF(context->res);
 	} else {
 		stream->ctx = NULL;
 	}
@@ -2231,6 +2198,7 @@ PHPAPI int php_stream_context_set_option(php_stream_context *context,
 	zval *wrapperhash;
 	zval category;
 
+	SEPARATE_ARRAY(&context->options);
 	wrapperhash = zend_hash_str_find(Z_ARRVAL(context->options), wrappername, strlen(wrappername));
 	if (NULL == wrapperhash) {
 		array_init(&category);
@@ -2241,6 +2209,7 @@ PHPAPI int php_stream_context_set_option(php_stream_context *context,
 	}
 	ZVAL_DEREF(optionvalue);
 	Z_TRY_ADDREF_P(optionvalue);
+	SEPARATE_ARRAY(wrapperhash);
 	return zend_hash_str_update(Z_ARRVAL_P(wrapperhash), optionname, strlen(optionname), optionvalue) ? SUCCESS : FAILURE;
 }
 /* }}} */

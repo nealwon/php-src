@@ -302,10 +302,13 @@ static int dom_write_na(dom_object *obj, zval *newval)
 static void dom_register_prop_handler(HashTable *prop_handler, char *name, size_t name_len, dom_read_t read_func, dom_write_t write_func)
 {
 	dom_prop_handler hnd;
+	zend_string *str;
 
 	hnd.read_func = read_func ? read_func : dom_read_na;
 	hnd.write_func = write_func ? write_func : dom_write_na;
-	zend_hash_str_add_mem(prop_handler, name, name_len, &hnd, sizeof(dom_prop_handler));
+	str = zend_string_init_interned(name, name_len, 1);
+	zend_hash_add_mem(prop_handler, str, &hnd, sizeof(dom_prop_handler));
+	zend_string_release(str);
 }
 /* }}} */
 
@@ -706,7 +709,7 @@ PHP_MINIT_FUNCTION(dom)
 	ce.create_object = dom_nnodemap_objects_new;
 	dom_nodelist_class_entry = zend_register_internal_class_ex(&ce, NULL);
 	dom_nodelist_class_entry->get_iterator = php_dom_get_iterator;
-	zend_class_implements(dom_nodelist_class_entry, 1, zend_ce_traversable);
+	zend_class_implements(dom_nodelist_class_entry, 2, zend_ce_traversable, zend_ce_countable);
 
 	zend_hash_init(&dom_nodelist_prop_handlers, 0, NULL, dom_dtor_prop_handler, 1);
 	dom_register_prop_handler(&dom_nodelist_prop_handlers, "length", sizeof("length")-1, dom_nodelist_length_read, NULL);
@@ -716,7 +719,7 @@ PHP_MINIT_FUNCTION(dom)
 	ce.create_object = dom_nnodemap_objects_new;
 	dom_namednodemap_class_entry = zend_register_internal_class_ex(&ce, NULL);
 	dom_namednodemap_class_entry->get_iterator = php_dom_get_iterator;
-	zend_class_implements(dom_namednodemap_class_entry, 1, zend_ce_traversable);
+	zend_class_implements(dom_namednodemap_class_entry, 2, zend_ce_traversable, zend_ce_countable);
 
 	zend_hash_init(&dom_namednodemap_prop_handlers, 0, NULL, dom_dtor_prop_handler, 1);
 	dom_register_prop_handler(&dom_namednodemap_prop_handlers, "length", sizeof("length")-1, dom_namednodemap_length_read, NULL);
@@ -1105,8 +1108,7 @@ zend_object *dom_xpath_objects_new(zend_class_entry *class_type)
 {
 	dom_xpath_object *intern = ecalloc(1, sizeof(dom_xpath_object) + zend_object_properties_size(class_type));
 
-	ALLOC_HASHTABLE(intern->registered_phpfunctions);
-	zend_hash_init(intern->registered_phpfunctions, 0, NULL, ZVAL_PTR_DTOR, 0);
+	intern->registered_phpfunctions = zend_new_array(0);
 
 	intern->dom.prop_handler = &dom_xpath_prop_handlers;
 	intern->dom.std.handlers = &dom_xpath_object_handlers;
@@ -1200,7 +1202,7 @@ PHP_DOM_EXPORT zend_bool php_dom_create_object(xmlNodePtr obj, zval *return_valu
 	}
 
 	if ((intern = (dom_object *) php_dom_object_get_data((void *) obj))) {
-		GC_REFCOUNT(&intern->std)++;
+		GC_ADDREF(&intern->std);
 		ZVAL_OBJ(return_value, &intern->std);
 		return 1;
 	}

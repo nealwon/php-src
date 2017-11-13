@@ -49,7 +49,13 @@ PHPAPI void php_register_variable_safe(char *var, char *strval, size_t str_len, 
 	assert(strval != NULL);
 
 	/* Prepare value */
-	ZVAL_NEW_STR(&new_entry, zend_string_init(strval, str_len, 0));
+	if (str_len == 0) {
+		ZVAL_EMPTY_STRING(&new_entry);
+	} else if (str_len == 1) {
+		ZVAL_INTERNED_STR(&new_entry, ZSTR_CHAR((zend_uchar)*strval));
+	} else {
+		ZVAL_NEW_STR(&new_entry, zend_string_init(strval, str_len, 0));
+	}
 	php_register_variable_ex(var, &new_entry, track_vars_array);
 }
 
@@ -331,7 +337,7 @@ static inline int add_post_vars(zval *arr, post_var_data_t *vars, zend_bool eof)
 		}
 	}
 
-	if (!eof) {
+	if (!eof && ZSTR_VAL(vars->str.s) != vars->ptr) {
 		memmove(ZSTR_VAL(vars->str.s), vars->ptr, ZSTR_LEN(vars->str.s) = vars->end - vars->ptr);
 	}
 	return SUCCESS;
@@ -452,7 +458,7 @@ SAPI_API SAPI_TREAT_DATA_FUNC(php_default_treat_data)
 	switch (arg) {
 		case PARSE_GET:
 		case PARSE_STRING:
-			separator = (char *) estrdup(PG(arg_separator).input);
+			separator = PG(arg_separator).input;
 			break;
 		case PARSE_COOKIE:
 			separator = ";\0";
@@ -505,10 +511,6 @@ SAPI_API SAPI_TREAT_DATA_FUNC(php_default_treat_data)
 		}
 next_cookie:
 		var = php_strtok_r(NULL, separator, &strtok_buf);
-	}
-
-	if (arg != PARSE_COOKIE) {
-		efree(separator);
 	}
 
 	if (free_buffer) {
@@ -661,15 +663,13 @@ static void php_autoglobal_merge(HashTable *dest, HashTable *src)
 			|| (string_key && (dest_entry = zend_hash_find(dest, string_key)) == NULL)
 			|| (string_key == NULL && (dest_entry = zend_hash_index_find(dest, num_key)) == NULL)
 			|| Z_TYPE_P(dest_entry) != IS_ARRAY) {
-			if (Z_REFCOUNTED_P(src_entry)) {
-				Z_ADDREF_P(src_entry);
-			}
+			Z_TRY_ADDREF_P(src_entry);
 			if (string_key) {
 				if (!globals_check || ZSTR_LEN(string_key) != sizeof("GLOBALS") - 1
 						|| memcmp(ZSTR_VAL(string_key), "GLOBALS", sizeof("GLOBALS") - 1)) {
 					zend_hash_update(dest, string_key, src_entry);
-				} else if (Z_REFCOUNTED_P(src_entry)) {
-					Z_DELREF_P(src_entry);
+				} else {
+					Z_TRY_DELREF_P(src_entry);
 				}
 			} else {
 				zend_hash_index_update(dest, num_key, src_entry);

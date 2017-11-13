@@ -100,12 +100,9 @@ static int php_get_if_index_from_zval(zval *val, unsigned *out)
 			ret = SUCCESS;
 		}
 	} else {
-		if (Z_REFCOUNTED_P(val)) {
-			Z_ADDREF_P(val);
-		}
-		convert_to_string_ex(val);
-		ret = php_string_to_if_index(Z_STRVAL_P(val), out);
-		zval_ptr_dtor(val);
+		zend_string *str = zval_get_string(val);
+		ret = php_string_to_if_index(ZSTR_VAL(str), out);
+		zend_string_release(str);
 	}
 
 	return ret;
@@ -130,20 +127,18 @@ static int php_get_address_from_array(const HashTable *ht, const char *key,
 	php_socket *sock, php_sockaddr_storage *ss, socklen_t *ss_len)
 {
 	zval *val;
+	zend_string *str;
 
 	if ((val = zend_hash_str_find(ht, key, strlen(key))) == NULL) {
 		php_error_docref(NULL, E_WARNING, "no key \"%s\" passed in optval", key);
 		return FAILURE;
 	}
-	if (Z_REFCOUNTED_P(val)) {
-		Z_ADDREF_P(val);
-	}
-	convert_to_string_ex(val);
-	if (!php_set_inet46_addr(ss, ss_len, Z_STRVAL_P(val), sock)) {
-		zval_ptr_dtor(val);
+	str = zval_get_string(val);
+	if (!php_set_inet46_addr(ss, ss_len, ZSTR_VAL(str), sock)) {
+		zend_string_release(str);
 		return FAILURE;
 	}
-	zval_ptr_dtor(val);
+	zend_string_release(str);
 	return SUCCESS;
 }
 
@@ -627,7 +622,7 @@ static int _php_source_op_to_ipv4_op(enum source_op sop)
 
 #endif /* HAS_MCAST_EXT */
 
-#if PHP_WIN32
+#ifdef PHP_WIN32
 int php_if_index_to_addr4(unsigned if_index, php_socket *php_sock, struct in_addr *out_addr)
 {
 	MIB_IPADDRTABLE *addr_table;

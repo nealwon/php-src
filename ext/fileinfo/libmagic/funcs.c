@@ -27,7 +27,7 @@
 #include "file.h"
 
 #ifndef	lint
-FILE_RCSID("@(#)$File: funcs.c,v 1.90 2016/10/19 20:51:17 christos Exp $")
+FILE_RCSID("@(#)$File: funcs.c,v 1.92 2017/04/07 20:10:24 christos Exp $")
 #endif	/* lint */
 
 #include "magic.h"
@@ -61,7 +61,6 @@ extern public void convert_libmagic_pattern(zval *pattern, char *val, int len, i
 protected int
 file_printf(struct magic_set *ms, const char *fmt, ...)
 {
-	int rv;
 	va_list ap;
 	int len;
 	char *buf = NULL, *newstr;
@@ -471,7 +470,7 @@ file_replace(struct magic_set *ms, const char *pat, const char *rep)
 	int opts = 0;
 	pcre_cache_entry *pce;
 	zend_string *res;
-	zval repl;
+	zend_string *repl;
 	int  rep_cnt = 0;
 
 	(void)setlocale(LC_CTYPE, "C");
@@ -485,10 +484,10 @@ file_replace(struct magic_set *ms, const char *pat, const char *rep)
 	}
 	zval_ptr_dtor(&patt);
 
-	ZVAL_STRING(&repl, rep);
-	res = php_pcre_replace_impl(pce, NULL, ms->o.buf, strlen(ms->o.buf), &repl, 0, -1, &rep_cnt);
+	repl = zend_string_init(rep, strlen(rep), 0);
+	res = php_pcre_replace_impl(pce, NULL, ms->o.buf, strlen(ms->o.buf), repl, -1, &rep_cnt);
 
-	zval_ptr_dtor(&repl);
+	zend_string_release(repl);
 	if (NULL == res) {
 		rep_cnt = -1;
 		goto out;

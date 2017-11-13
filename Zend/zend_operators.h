@@ -172,7 +172,7 @@ zend_memnstr(const char *haystack, const char *needle, size_t needle_len, const 
 
 		while (p <= end) {
 			if ((p = (const char *)memchr(p, *needle, (end-p+1))) && ne == p[needle_len-1]) {
-				if (!memcmp(needle, p, needle_len-1)) {
+				if (!memcmp(needle+1, p+1, needle_len-2)) {
 					return p;
 				}
 			}
@@ -230,7 +230,7 @@ zend_memnrstr(const char *haystack, const char *needle, size_t needle_len, char 
 
 		do {
 			if ((p = (const char *)zend_memrchr(haystack, *needle, (p - haystack) + 1)) && ne == p[needle_len-1]) {
-				if (!memcmp(needle, p, needle_len - 1)) {
+				if (!memcmp(needle + 1, p + 1, needle_len - 2)) {
 					return p;
 				}
 			}
@@ -361,13 +361,13 @@ ZEND_API int ZEND_FASTCALL zend_binary_strncasecmp(const char *s1, size_t len1, 
 ZEND_API int ZEND_FASTCALL zend_binary_strcasecmp_l(const char *s1, size_t len1, const char *s2, size_t len2);
 ZEND_API int ZEND_FASTCALL zend_binary_strncasecmp_l(const char *s1, size_t len1, const char *s2, size_t len2, size_t length);
 
-ZEND_API zend_long ZEND_FASTCALL zendi_smart_strcmp(zend_string *s1, zend_string *s2);
+ZEND_API int ZEND_FASTCALL zendi_smart_strcmp(zend_string *s1, zend_string *s2);
 ZEND_API int ZEND_FASTCALL zend_compare_symbol_tables(HashTable *ht1, HashTable *ht2);
 ZEND_API int ZEND_FASTCALL zend_compare_arrays(zval *a1, zval *a2);
 ZEND_API int ZEND_FASTCALL zend_compare_objects(zval *o1, zval *o2);
 
-ZEND_API int ZEND_FASTCALL zend_atoi(const char *str, int str_len);
-ZEND_API zend_long ZEND_FASTCALL zend_atol(const char *str, int str_len);
+ZEND_API int ZEND_FASTCALL zend_atoi(const char *str, size_t str_len);
+ZEND_API zend_long ZEND_FASTCALL zend_atol(const char *str, size_t str_len);
 
 ZEND_API void ZEND_FASTCALL zend_locale_sprintf_double(zval *op ZEND_FILE_LINE_DC);
 
@@ -906,4 +906,6 @@ END_EXTERN_C()
  * c-basic-offset: 4
  * indent-tabs-mode: t
  * End:
+ * vim600: sw=4 ts=4 fdm=marker
+ * vim<600: sw=4 ts=4
  */

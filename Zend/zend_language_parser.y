@@ -338,17 +338,22 @@ use_type:
 ;
 
 group_use_declaration:
-		namespace_name T_NS_SEPARATOR '{' unprefixed_use_declarations '}'
+		namespace_name T_NS_SEPARATOR '{' unprefixed_use_declarations possible_comma '}'
 			{ $$ = zend_ast_create(ZEND_AST_GROUP_USE, $1, $4); }
-	|	T_NS_SEPARATOR namespace_name T_NS_SEPARATOR '{' unprefixed_use_declarations '}'
+	|	T_NS_SEPARATOR namespace_name T_NS_SEPARATOR '{' unprefixed_use_declarations possible_comma '}'
 			{ $$ = zend_ast_create(ZEND_AST_GROUP_USE, $2, $5); }
 ;
 
 mixed_group_use_declaration:
-		namespace_name T_NS_SEPARATOR '{' inline_use_declarations '}'
+		namespace_name T_NS_SEPARATOR '{' inline_use_declarations possible_comma '}'
 			{ $$ = zend_ast_create(ZEND_AST_GROUP_USE, $1, $4);}
-	|	T_NS_SEPARATOR namespace_name T_NS_SEPARATOR '{' inline_use_declarations '}'
+	|	T_NS_SEPARATOR namespace_name T_NS_SEPARATOR '{' inline_use_declarations possible_comma '}'
 			{ $$ = zend_ast_create(ZEND_AST_GROUP_USE, $2, $5); }
+;
+
+possible_comma:
+		/* empty */
+	|	','
 ;
 
 inline_use_declarations:
@@ -434,7 +439,7 @@ statement:
 	|	T_ECHO echo_expr_list ';'		{ $$ = $2; }
 	|	T_INLINE_HTML { $$ = zend_ast_create(ZEND_AST_ECHO, $1); }
 	|	expr ';' { $$ = $1; }
-	|	T_UNSET '(' unset_variables ')' ';' { $$ = $3; }
+	|	T_UNSET '(' unset_variables possible_comma ')' ';' { $$ = $3; }
 	|	T_FOREACH '(' expr T_AS foreach_variable ')' foreach_statement
 			{ $$ = zend_ast_create(ZEND_AST_FOREACH, $3, $5, NULL, $7); }
 	|	T_FOREACH '(' expr T_AS foreach_variable T_DOUBLE_ARROW foreach_variable ')'
@@ -665,7 +670,7 @@ return_type:
 
 argument_list:
 		'(' ')'	{ $$ = zend_ast_create_list(0, ZEND_AST_ARG_LIST); }
-	|	'(' non_empty_argument_list ')' { $$ = $2; }
+	|	'(' non_empty_argument_list possible_comma ')' { $$ = $2; }
 ;
 
 non_empty_argument_list:
@@ -1030,7 +1035,7 @@ function_call:
 
 class_name:
 		T_STATIC
-			{ zval zv; ZVAL_INTERNED_STR(&zv, CG(known_strings)[ZEND_STR_STATIC]);
+			{ zval zv; ZVAL_INTERNED_STR(&zv, ZSTR_KNOWN(ZEND_STR_STATIC));
 			  $$ = zend_ast_create_zval_ex(&zv, ZEND_NAME_NOT_FQ); }
 	|	name { $$ = $1; }
 ;
@@ -1255,7 +1260,7 @@ encaps_var_offset:
 
 
 internal_functions_in_yacc:
-		T_ISSET '(' isset_variables ')' { $$ = $3; }
+		T_ISSET '(' isset_variables possible_comma ')' { $$ = $3; }
 	|	T_EMPTY '(' expr ')' { $$ = zend_ast_create(ZEND_AST_EMPTY, $3); }
 	|	T_INCLUDE expr
 			{ $$ = zend_ast_create_ex(ZEND_AST_INCLUDE_OR_EVAL, ZEND_INCLUDE, $2); }
@@ -1370,4 +1375,6 @@ static YYSIZE_T zend_yytnamerr(char *yyres, const char *yystr)
  * c-basic-offset: 4
  * indent-tabs-mode: t
  * End:
+ * vim600: sw=4 ts=4 fdm=marker
+ * vim<600: sw=4 ts=4
  */

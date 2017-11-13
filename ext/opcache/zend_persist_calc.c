@@ -83,9 +83,7 @@ static void zend_hash_persist_calc(HashTable *ht, void (*pPersistElement)(zval *
 
 		/* persist bucket and key */
 		if (p->key) {
-			zend_uchar flags = GC_FLAGS(p->key) & ~ (IS_STR_PERSISTENT | IS_STR_INTERNED | IS_STR_PERMANENT);
 			ADD_INTERNED_STRING(p->key, 1);
-			GC_FLAGS(p->key) |= flags;
 		}
 
 		pPersistElement(&p->val);
@@ -96,9 +94,9 @@ static void zend_persist_ast_calc(zend_ast *ast)
 {
 	uint32_t i;
 
-	if (ast->kind == ZEND_AST_ZVAL) {
+	if (ast->kind == ZEND_AST_ZVAL || ast->kind == ZEND_AST_CONSTANT) {
 		ADD_SIZE(sizeof(zend_ast_zval));
-		zend_persist_zval_calc(zend_ast_get_zval(ast));
+		zend_persist_zval_calc(&((zend_ast_zval*)(ast))->val);
 	} else if (zend_ast_is_list(ast)) {
 		zend_ast_list *list = zend_ast_get_list(ast);
 		ADD_SIZE(sizeof(zend_ast_list) - sizeof(zend_ast *) + sizeof(zend_ast *) * list->children);
@@ -120,18 +118,14 @@ static void zend_persist_ast_calc(zend_ast *ast)
 
 static void zend_persist_zval_calc(zval *z)
 {
-	zend_uchar flags;
 	uint32_t size;
 
 	switch (Z_TYPE_P(z)) {
 		case IS_STRING:
-		case IS_CONSTANT:
-			flags = Z_GC_FLAGS_P(z) & ~ (IS_STR_PERSISTENT | IS_STR_INTERNED | IS_STR_PERMANENT);
 			ADD_INTERNED_STRING(Z_STR_P(z), 0);
 			if (ZSTR_IS_INTERNED(Z_STR_P(z))) {
 				Z_TYPE_FLAGS_P(z) &= ~ (IS_TYPE_REFCOUNTED | IS_TYPE_COPYABLE);
 			}
-			Z_GC_FLAGS_P(z) |= flags;
 			break;
 		case IS_ARRAY:
 			size = zend_shared_memdup_size(Z_ARR_P(z), sizeof(zend_array));
@@ -177,7 +171,7 @@ static void zend_persist_op_array_calc_ex(zend_op_array *op_array)
 		/* already stored */
 		if (op_array->function_name) {
 			zend_string *new_name = zend_shared_alloc_get_xlat_entry(op_array->function_name);
-			if (IS_ACCEL_INTERNED(new_name)) {
+			if (new_name) {
 				op_array->function_name = new_name;
 			}
 		}
@@ -400,7 +394,7 @@ static void zend_accel_persist_class_table_calc(HashTable *class_table)
 	zend_hash_persist_calc(class_table, zend_persist_class_entry_calc);
 }
 
-uint32_t zend_accel_script_persist_calc(zend_persistent_script *new_persistent_script, char *key, unsigned int key_length)
+uint32_t zend_accel_script_persist_calc(zend_persistent_script *new_persistent_script, const char *key, unsigned int key_length, int for_shm)
 {
 	new_persistent_script->mem = NULL;
 	new_persistent_script->size = 0;
@@ -409,12 +403,14 @@ uint32_t zend_accel_script_persist_calc(zend_persistent_script *new_persistent_s
 	new_persistent_script->corrupted = 0;
 	ZCG(current_persistent_script) = new_persistent_script;
 
+	if (!for_shm) {
+		/* script is not going to be saved in SHM */
+		new_persistent_script->corrupted = 1;
+	}
+
 	ADD_DUP_SIZE(new_persistent_script, sizeof(zend_persistent_script));
 	if (key) {
 		ADD_DUP_SIZE(key, key_length + 1);
-	} else {
-		/* script is not going to be saved in SHM */
-		new_persistent_script->corrupted = 1;
 	}
 	ADD_STRING(new_persistent_script->script.filename);
 

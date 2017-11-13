@@ -98,7 +98,7 @@ PHP_HASH_API void php_hash_register_algo(const char *algo, const php_hash_ops *o
 {
 	size_t algo_len = strlen(algo);
 	char *lower = zend_str_tolower_dup(algo, algo_len);
-	zend_hash_str_add_ptr(&php_hash_hashtable, lower, algo_len, (void *) ops);
+	zend_hash_add_ptr(&php_hash_hashtable, zend_string_init_interned(lower, algo_len, 1), (void *) ops);
 	efree(lower);
 }
 /* }}} */
@@ -593,6 +593,22 @@ PHP_FUNCTION(hash_algos)
 	array_init(return_value);
 	ZEND_HASH_FOREACH_STR_KEY(&php_hash_hashtable, str) {
 		add_next_index_str(return_value, zend_string_copy(str));
+	} ZEND_HASH_FOREACH_END();
+}
+/* }}} */
+
+/* {{{ proto array hash_hmac_algos(void)
+Return a list of registered hashing algorithms suitable for hash_hmac() */
+PHP_FUNCTION(hash_hmac_algos)
+{
+	zend_string *str;
+	const php_hash_ops *ops;
+
+	array_init(return_value);
+	ZEND_HASH_FOREACH_STR_KEY_PTR(&php_hash_hashtable, str, ops) {
+		if (ops->is_crypto) {
+			add_next_index_str(return_value, zend_string_copy(str));
+		}
 	} ZEND_HASH_FOREACH_END();
 }
 /* }}} */
@@ -1429,6 +1445,7 @@ const zend_function_entry hash_functions[] = {
 	PHP_FE(hash_copy,								arginfo_hash_copy)
 
 	PHP_FE(hash_algos,								arginfo_hash_algos)
+	PHP_FE(hash_hmac_algos,							arginfo_hash_algos)
 	PHP_FE(hash_pbkdf2,								arginfo_hash_pbkdf2)
 	PHP_FE(hash_equals,								arginfo_hash_equals)
 	PHP_FE(hash_hkdf,								arginfo_hash_hkdf)

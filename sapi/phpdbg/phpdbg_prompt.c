@@ -46,7 +46,7 @@
 #include "phpdbg_wait.h"
 #include "phpdbg_eol.h"
 
-#if ZEND_VM_KIND != ZEND_VM_KIND_CALL
+#if ZEND_VM_KIND != ZEND_VM_KIND_CALL && ZEND_VM_KIND != ZEND_VM_KIND_HYBRID
 #error "phpdbg can only be built with CALL zend vm kind"
 #endif
 
@@ -1307,7 +1307,7 @@ PHPDBG_API const char *phpdbg_load_module_or_extension(char **path, char **name)
 	handle = DL_LOAD(*path);
 
 	if (!handle) {
-#if PHP_WIN32
+#ifdef PHP_WIN32
 		char *err = GET_DL_ERROR();
 		if (err && err[0]) {
 			phpdbg_error("dl", "type=\"unknown\"", "%s", err);
@@ -1692,7 +1692,7 @@ int phpdbg_interactive(zend_bool allow_async_unsafe, char *input) /* {{{ */
 			backup_opline = EG(current_execute_data)->opline; \
 		} \
 		before_ex = EG(opline_before_exception); \
-		++GC_REFCOUNT(exception); \
+		GC_ADDREF(exception); \
 		zend_clear_exception(); \
 	} \
 	if (!(PHPDBG_G(flags) & PHPDBG_IN_EVAL)) { \

@@ -599,12 +599,12 @@ static int oci_stmt_describe(pdo_stmt_t *stmt, int colno) /* {{{ */
 			} else if (dtype == SQLT_IBFLOAT || dtype == SQLT_IBDOUBLE) {
 				S->cols[colno].datalen = 1024;
 #endif
+			} else if (dtype == SQLT_BIN) {
+				S->cols[colno].datalen = (ub4) col->maxlen * 2; // raw characters to hex digits
 			} else {
-				S->cols[colno].datalen = (ub4) col->maxlen;
+				S->cols[colno].datalen = (ub4) (col->maxlen * S->H->max_char_width);
 			}
-			if (dtype == SQLT_BIN) {
-				S->cols[colno].datalen *= 3;
-			}
+
 			S->cols[colno].data = emalloc(S->cols[colno].datalen + 1);
 			dtype = SQLT_CHR;
 
@@ -691,7 +691,7 @@ static int oci_blob_close(php_stream *stream, int close_handle)
 
 		OCILobClose(self->E->svc, self->E->err, self->lob);
 		zval_ptr_dtor(&self->dbh);
-		GC_REFCOUNT(obj)--;
+		GC_DELREF(obj);
 		efree(self->E);
 		efree(self);
 	}
@@ -751,7 +751,7 @@ static php_stream *oci_create_lob_stream(zval *dbh, pdo_stmt_t *stmt, OCILobLoca
 		zend_object *obj;
 		obj = &stmt->std;
 		Z_ADDREF(self->dbh);
-		GC_REFCOUNT(obj)++;
+		GC_ADDREF(obj);
 		return stm;
 	}
 
