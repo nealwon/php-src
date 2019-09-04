@@ -5,6 +5,7 @@ opcache.enable=1
 opcache.enable_cli=1
 opcache.optimization_level=-1
 opcache.opt_debug_level=0x20000
+opcache.preload=
 --SKIPIF--
 <?php require_once('skipif.inc'); ?>
 --FILE--
@@ -34,6 +35,6 @@ L4 (4):     OP_DATA int(5)
 L5 (5):     ECHO int(5)
 L6 (6):     ASSIGN_OBJ CV1($a) string("foo")
 L7 (6):     OP_DATA int(5)
-L8 (7):     V2 = FETCH_DIM_R CV1($a) int(1)
-L9 (7):     ECHO V2
+L8 (7):     T2 = FETCH_DIM_R CV1($a) int(1)
+L9 (7):     ECHO T2
 L10 (8):    RETURN null

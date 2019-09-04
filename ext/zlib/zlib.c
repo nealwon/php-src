@@ -2,7 +2,7 @@
    +----------------------------------------------------------------------+
    | PHP Version 7                                                        |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997-2017 The PHP Group                                |
+   | Copyright (c) The PHP Group                                          |
    +----------------------------------------------------------------------+
    | This source file is subject to version 3.01 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -14,13 +14,11 @@
    +----------------------------------------------------------------------+
    | Authors: Rasmus Lerdorf <rasmus@lerdorf.on.ca>                       |
    |          Stefan Röhrich <sr@linux.de>                                |
-   |          Zeev Suraski <zeev@zend.com>                                |
+   |          Zeev Suraski <zeev@php.net>                                 |
    |          Jade Nicoletti <nicoletti@nns.ch>                           |
    |          Michael Wallner <mike@php.net>                              |
    +----------------------------------------------------------------------+
  */
-
-/* $Id$ */
 
 #ifdef HAVE_CONFIG_H
 #include "config.h"
@@ -33,6 +31,7 @@
 #include "ext/standard/file.h"
 #include "ext/standard/php_string.h"
 #include "php_zlib.h"
+#include "zlib_arginfo.h"
 
 /*
  * zlib include files can define the following preprocessor defines which rename
@@ -362,7 +361,7 @@ static zend_string *php_zlib_encode(const char *in_buf, size_t in_len, int encod
 			ZSTR_VAL(out)[ZSTR_LEN(out)] = '\0';
 			return out;
 		} else {
-			zend_string_free(out);
+			zend_string_efree(out);
 		}
 	}
 
@@ -779,7 +778,7 @@ static zend_bool zlib_create_dictionary_string(HashTable *options, char **dict, 
 						size_t i;
 
 						*++ptr = zval_get_string(cur);
-						if (!*ptr || ZSTR_LEN(*ptr) == 0) {
+						if (!*ptr || ZSTR_LEN(*ptr) == 0 || EG(exception)) {
 							if (*ptr) {
 								efree(*ptr);
 							}
@@ -787,7 +786,9 @@ static zend_bool zlib_create_dictionary_string(HashTable *options, char **dict, 
 								efree(ptr);
 							}
 							efree(strings);
-							php_error_docref(NULL, E_WARNING, "dictionary entries must be non-empty strings");
+							if (!EG(exception)) {
+								php_error_docref(NULL, E_WARNING, "dictionary entries must be non-empty strings");
+							}
 							return 0;
 						}
 						for (i = 0; i < ZSTR_LEN(*ptr); i++) {
@@ -811,7 +812,7 @@ static zend_bool zlib_create_dictionary_string(HashTable *options, char **dict, 
 						memcpy(dictptr, ZSTR_VAL(*ptr), ZSTR_LEN(*ptr));
 						dictptr += ZSTR_LEN(*ptr);
 						*dictptr++ = 0;
-						zend_string_release(*ptr);
+						zend_string_release_ex(*ptr, 0);
 					} while (++ptr != end);
 					efree(strings);
 				}
@@ -936,7 +937,7 @@ PHP_FUNCTION(inflate_add)
 				"flush mode must be ZLIB_NO_FLUSH, ZLIB_PARTIAL_FLUSH, ZLIB_SYNC_FLUSH, ZLIB_FULL_FLUSH, ZLIB_BLOCK or ZLIB_FINISH");
 			RETURN_FALSE;
 	}
-	
+
 	/* Lazy-resetting the zlib stream so ctx->total_in remains available until the next inflate_add() call. */
 	if (((php_zlib_context *) ctx)->status == Z_STREAM_END)
 	{
@@ -995,7 +996,7 @@ PHP_FUNCTION(inflate_add)
 						case Z_DATA_ERROR:
 							php_error_docref(NULL, E_WARNING, "dictionary does not match expected dictionary (incorrect adler32 hash)");
 							efree(php_ctx->inflateDict);
-							zend_string_release(out);
+							zend_string_release_ex(out, 0);
 							php_ctx->inflateDict = NULL;
 							RETURN_FALSE;
 						EMPTY_SWITCH_DEFAULT_CASE()
@@ -1006,7 +1007,7 @@ PHP_FUNCTION(inflate_add)
 					RETURN_FALSE;
 				}
 			default:
-				zend_string_release(out);
+				zend_string_release_ex(out, 0);
 				php_error_docref(NULL, E_WARNING, "%s", zError(status));
 				RETURN_FALSE;
 		}
@@ -1036,7 +1037,7 @@ PHP_FUNCTION(inflate_get_status)
 		php_error_docref(NULL, E_WARNING, "Invalid zlib.inflate resource");
 		RETURN_FALSE;
 	}
-	
+
 	RETURN_LONG(((php_zlib_context *) ctx)->status);
 }
 /* }}} */
@@ -1238,7 +1239,7 @@ PHP_FUNCTION(deflate_add)
 			RETURN_STR(out);
 			break;
 		default:
-			zend_string_release(out);
+			zend_string_release_ex(out, 0);
 			php_error_docref(NULL, E_WARNING, "zlib error (%s)", zError(status));
 			RETURN_FALSE;
 	}
@@ -1252,154 +1253,20 @@ ZEND_TSRMLS_CACHE_DEFINE()
 ZEND_GET_MODULE(php_zlib)
 #endif
 
-/* {{{ arginfo */
-ZEND_BEGIN_ARG_INFO_EX(arginfo_ob_gzhandler, 0, 0, 2)
-	ZEND_ARG_INFO(0, data)
-	ZEND_ARG_INFO(0, flags)
-ZEND_END_ARG_INFO()
-
-ZEND_BEGIN_ARG_INFO(arginfo_zlib_get_coding_type, 0)
-ZEND_END_ARG_INFO()
-
-ZEND_BEGIN_ARG_INFO_EX(arginfo_gzfile, 0, 0, 1)
-	ZEND_ARG_INFO(0, filename)
-	ZEND_ARG_INFO(0, use_include_path)
-ZEND_END_ARG_INFO()
-
-ZEND_BEGIN_ARG_INFO_EX(arginfo_gzopen, 0, 0, 2)
-	ZEND_ARG_INFO(0, filename)
-	ZEND_ARG_INFO(0, mode)
-	ZEND_ARG_INFO(0, use_include_path)
-ZEND_END_ARG_INFO()
-
-ZEND_BEGIN_ARG_INFO_EX(arginfo_readgzfile, 0, 0, 1)
-	ZEND_ARG_INFO(0, filename)
-	ZEND_ARG_INFO(0, use_include_path)
-ZEND_END_ARG_INFO()
-
-ZEND_BEGIN_ARG_INFO_EX(arginfo_zlib_encode, 0, 0, 2)
-	ZEND_ARG_INFO(0, data)
-	ZEND_ARG_INFO(0, encoding)
-	ZEND_ARG_INFO(0, level)
-ZEND_END_ARG_INFO()
-
-ZEND_BEGIN_ARG_INFO_EX(arginfo_zlib_decode, 0, 0, 1)
-	ZEND_ARG_INFO(0, data)
-	ZEND_ARG_INFO(0, max_decoded_len)
-ZEND_END_ARG_INFO()
-
-ZEND_BEGIN_ARG_INFO_EX(arginfo_gzdeflate, 0, 0, 1)
-	ZEND_ARG_INFO(0, data)
-	ZEND_ARG_INFO(0, level)
-	ZEND_ARG_INFO(0, encoding)
-ZEND_END_ARG_INFO()
-
-ZEND_BEGIN_ARG_INFO_EX(arginfo_gzencode, 0, 0, 1)
-	ZEND_ARG_INFO(0, data)
-	ZEND_ARG_INFO(0, level)
-	ZEND_ARG_INFO(0, encoding)
-ZEND_END_ARG_INFO()
-
-ZEND_BEGIN_ARG_INFO_EX(arginfo_gzcompress, 0, 0, 1)
-	ZEND_ARG_INFO(0, data)
-	ZEND_ARG_INFO(0, level)
-	ZEND_ARG_INFO(0, encoding)
-ZEND_END_ARG_INFO()
-
-ZEND_BEGIN_ARG_INFO_EX(arginfo_gzinflate, 0, 0, 1)
-	ZEND_ARG_INFO(0, data)
-	ZEND_ARG_INFO(0, max_decoded_len)
-ZEND_END_ARG_INFO()
-
-ZEND_BEGIN_ARG_INFO_EX(arginfo_gzdecode, 0, 0, 1)
-	ZEND_ARG_INFO(0, data)
-	ZEND_ARG_INFO(0, max_decoded_len)
-ZEND_END_ARG_INFO()
-
-ZEND_BEGIN_ARG_INFO_EX(arginfo_gzuncompress, 0, 0, 1)
-	ZEND_ARG_INFO(0, data)
-	ZEND_ARG_INFO(0, max_decoded_len)
-ZEND_END_ARG_INFO()
-
-ZEND_BEGIN_ARG_INFO_EX(arginfo_gzputs, 0, 0, 2)
-	ZEND_ARG_INFO(0, fp)
-	ZEND_ARG_INFO(0, str)
-	ZEND_ARG_INFO(0, length)
-ZEND_END_ARG_INFO()
-
-ZEND_BEGIN_ARG_INFO(arginfo_gzpassthru, 0)
-	ZEND_ARG_INFO(0, fp)
-ZEND_END_ARG_INFO()
-
-ZEND_BEGIN_ARG_INFO_EX(arginfo_gzseek, 0, 0, 2)
-	ZEND_ARG_INFO(0, fp)
-	ZEND_ARG_INFO(0, offset)
-	ZEND_ARG_INFO(0, whence)
-ZEND_END_ARG_INFO()
-
-ZEND_BEGIN_ARG_INFO(arginfo_gzread, 0)
-	ZEND_ARG_INFO(0, fp)
-	ZEND_ARG_INFO(0, length)
-ZEND_END_ARG_INFO()
-
-ZEND_BEGIN_ARG_INFO_EX(arginfo_gzgetss, 0, 0, 1)
-	ZEND_ARG_INFO(0, fp)
-	ZEND_ARG_INFO(0, length)
-	ZEND_ARG_INFO(0, allowable_tags)
-ZEND_END_ARG_INFO()
-
-ZEND_BEGIN_ARG_INFO_EX(arginfo_gzgets, 0, 0, 1)
-	ZEND_ARG_INFO(0, fp)
-	ZEND_ARG_INFO(0, length)
-ZEND_END_ARG_INFO()
-
-ZEND_BEGIN_ARG_INFO_EX(arginfo_deflate_init, 0, 0, 1)
-	ZEND_ARG_INFO(0, encoding)
-	ZEND_ARG_INFO(0, level)
-ZEND_END_ARG_INFO()
-
-ZEND_BEGIN_ARG_INFO_EX(arginfo_deflate_add, 0, 0, 2)
-	ZEND_ARG_INFO(0, resource)
-	ZEND_ARG_INFO(0, add)
-	ZEND_ARG_INFO(0, flush_behavior)
-ZEND_END_ARG_INFO()
-
-ZEND_BEGIN_ARG_INFO_EX(arginfo_inflate_init, 0, 0, 1)
-	ZEND_ARG_INFO(0, encoding)
-	ZEND_ARG_INFO(0, options)
-ZEND_END_ARG_INFO()
-
-ZEND_BEGIN_ARG_INFO_EX(arginfo_inflate_add, 0, 0, 2)
-	ZEND_ARG_INFO(0, context)
-	ZEND_ARG_INFO(0, encoded_data)
-	ZEND_ARG_INFO(0, flush_mode)
-ZEND_END_ARG_INFO()
-
-ZEND_BEGIN_ARG_INFO_EX(arginfo_inflate_get_status, 0, 0, 1)
-	ZEND_ARG_INFO(0, resource)
-ZEND_END_ARG_INFO()
-
-ZEND_BEGIN_ARG_INFO_EX(arginfo_inflate_get_read_len, 0, 0, 1)
-	ZEND_ARG_INFO(0, resource)
-ZEND_END_ARG_INFO()
-
-/* }}} */
-
 /* {{{ php_zlib_functions[] */
 static const zend_function_entry php_zlib_functions[] = {
 	PHP_FE(readgzfile,						arginfo_readgzfile)
-	PHP_FALIAS(gzrewind,	rewind,			arginfo_gzpassthru)
-	PHP_FALIAS(gzclose,		fclose,			arginfo_gzpassthru)
-	PHP_FALIAS(gzeof,		feof,			arginfo_gzpassthru)
-	PHP_FALIAS(gzgetc,		fgetc,			arginfo_gzpassthru)
+	PHP_FALIAS(gzrewind,	rewind,			arginfo_gzrewind)
+	PHP_FALIAS(gzclose,		fclose,			arginfo_gzclose)
+	PHP_FALIAS(gzeof,		feof,			arginfo_gzeof)
+	PHP_FALIAS(gzgetc,		fgetc,			arginfo_gzgetc)
 	PHP_FALIAS(gzgets,		fgets,			arginfo_gzgets)
-	PHP_FALIAS(gzgetss,		fgetss,			arginfo_gzgetss)
 	PHP_FALIAS(gzread,		fread,			arginfo_gzread)
 	PHP_FE(gzopen,							arginfo_gzopen)
 	PHP_FALIAS(gzpassthru,	fpassthru,		arginfo_gzpassthru)
 	PHP_FALIAS(gzseek,		fseek,			arginfo_gzseek)
-	PHP_FALIAS(gztell,		ftell,			arginfo_gzpassthru)
-	PHP_FALIAS(gzwrite,		fwrite,			arginfo_gzputs)
+	PHP_FALIAS(gztell,		ftell,			arginfo_gztell)
+	PHP_FALIAS(gzwrite,		fwrite,			arginfo_gzwrite)
 	PHP_FALIAS(gzputs,		fwrite,			arginfo_gzputs)
 	PHP_FE(gzfile,							arginfo_gzfile)
 	PHP_FE(gzcompress,						arginfo_gzcompress)
@@ -1626,12 +1493,3 @@ zend_module_entry php_zlib_module_entry = {
 	STANDARD_MODULE_PROPERTIES_EX
 };
 /* }}} */
-
-/*
- * Local variables:
- * tab-width: 4
- * c-basic-offset: 4
- * End:
- * vim600: sw=4 ts=4 fdm=marker
- * vim<600: sw=4 ts=4
- */

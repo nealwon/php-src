@@ -68,4 +68,4 @@ foreach (new \RecursiveIteratorIterator (new fooIterator ($foo)) as $bar) ;
 
 ?>
 --EXPECTF--
-Fatal error: Class 'NotExists' not found in %sbug73423.php(%d) : eval()'d code on line 1
+Fatal error: Class 'NotExists' not found in %s(%d) : eval()'d code on line 1

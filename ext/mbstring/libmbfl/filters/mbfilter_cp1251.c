@@ -133,9 +133,7 @@ mbfl_filt_conv_wchar_cp1251(int c, mbfl_convert_filter *filter)
 	if (s >= 0) {
 		CK((*filter->output_function)(s, filter->data));
 	} else {
-		if (filter->illegal_mode != MBFL_OUTPUTFILTER_ILLEGAL_MODE_NONE) {
-			CK(mbfl_filt_conv_illegal_output(c, filter));
-		}
+		CK(mbfl_filt_conv_illegal_output(c, filter));
 	}
 
 	return c;
@@ -144,11 +142,9 @@ mbfl_filt_conv_wchar_cp1251(int c, mbfl_convert_filter *filter)
 /* all of this is so ugly now! */
 static int mbfl_filt_ident_cp1251(int c, mbfl_identify_filter *filter)
 {
-	if (c >= 0x80 && c < 0xff)
+	if (c >= 0x80 && c <= 0xff)
 		filter->flag = 0;
 	else
 		filter->flag = 1; /* not it */
 	return c;
 }
-
-

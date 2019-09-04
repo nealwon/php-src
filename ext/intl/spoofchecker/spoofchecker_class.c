@@ -41,12 +41,11 @@ void Spoofchecker_objects_free(zend_object *object)
 /* }}} */
 
 /* {{{ Spoofchecker_object_create */
-zend_object *Spoofchecker_object_create(
-	zend_class_entry *ce)
+zend_object *Spoofchecker_object_create(zend_class_entry *ce)
 {
 	Spoofchecker_object*     intern;
 
-	intern = ecalloc(1, sizeof(Spoofchecker_object) + zend_object_properties_size(ce));
+	intern = zend_object_alloc(sizeof(Spoofchecker_object), ce);
 	intl_error_init(SPOOFCHECKER_ERROR_P(intern));
 	zend_object_std_init(&intern->zo, ce);
 	object_properties_init(&intern->zo, ce);
@@ -96,8 +95,8 @@ ZEND_END_ARG_INFO()
  * Every 'Spoofchecker' class method has an entry in this table
  */
 
-zend_function_entry Spoofchecker_class_functions[] = {
-	PHP_ME(Spoofchecker, __construct, spoofchecker_0_args, ZEND_ACC_PUBLIC|ZEND_ACC_CTOR)
+static const zend_function_entry Spoofchecker_class_functions[] = {
+	PHP_ME(Spoofchecker, __construct, spoofchecker_0_args, ZEND_ACC_PUBLIC)
 	PHP_ME(Spoofchecker, isSuspicious, spoofchecker_is_suspicous, ZEND_ACC_PUBLIC)
 	PHP_ME(Spoofchecker, areConfusable, spoofchecker_are_confusable, ZEND_ACC_PUBLIC)
 	PHP_ME(Spoofchecker, setAllowedLocales, spoofchecker_set_allowed_locales, ZEND_ACC_PUBLIC)
@@ -109,15 +108,15 @@ zend_function_entry Spoofchecker_class_functions[] = {
 };
 /* }}} */
 
-static zend_object *spoofchecker_clone_obj(zval *object) /* {{{ */
+static zend_object *spoofchecker_clone_obj(zend_object *object) /* {{{ */
 {
 	zend_object *new_obj_val;
 	Spoofchecker_object *sfo, *new_sfo;
 
-    sfo = Z_INTL_SPOOFCHECKER_P(object);
+    sfo = php_intl_spoofchecker_fetch_object(object);
     intl_error_reset(SPOOFCHECKER_ERROR_P(sfo));
 
-	new_obj_val = Spoofchecker_ce_ptr->create_object(Z_OBJCE_P(object));
+	new_obj_val = Spoofchecker_ce_ptr->create_object(object->ce);
 	new_sfo = php_intl_spoofchecker_fetch_object(new_obj_val);
 	/* clone standard parts */
 	zend_objects_clone_members(&new_sfo->zo, &sfo->zo);
@@ -145,7 +144,7 @@ void spoofchecker_register_Spoofchecker_class(void)
 	ce.create_object = Spoofchecker_object_create;
 	Spoofchecker_ce_ptr = zend_register_internal_class(&ce);
 
-	memcpy(&Spoofchecker_handlers, zend_get_std_object_handlers(),
+	memcpy(&Spoofchecker_handlers, &std_object_handlers,
 		sizeof Spoofchecker_handlers);
 	Spoofchecker_handlers.offset = XtOffsetOf(Spoofchecker_object, zo);
 	Spoofchecker_handlers.clone_obj = spoofchecker_clone_obj;
@@ -184,12 +183,3 @@ void spoofchecker_object_destroy(Spoofchecker_object* co)
 	intl_error_reset(SPOOFCHECKER_ERROR_P(co));
 }
 /* }}} */
-
-/*
- * Local variables:
- * tab-width: 4
- * c-basic-offset: 4
- * End:
- * vim600: noet sw=4 ts=4 fdm=marker
- * vim<600: noet sw=4 ts=4
- */

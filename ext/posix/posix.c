@@ -2,7 +2,7 @@
    +----------------------------------------------------------------------+
    | PHP Version 7                                                        |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997-2017 The PHP Group                                |
+   | Copyright (c) The PHP Group                                          |
    +----------------------------------------------------------------------+
    | This source file is subject to version 3.01 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -16,8 +16,6 @@
    +----------------------------------------------------------------------+
  */
 
-/* $Id$ */
-
 #ifdef HAVE_CONFIG_H
 #include "config.h"
 #endif
@@ -27,7 +25,7 @@
 #include "ext/standard/info.h"
 #include "ext/standard/php_string.h"
 #include "php_posix.h"
-
+#include "posix_arginfo.h"
 
 #if HAVE_POSIX
 
@@ -36,11 +34,6 @@
 #endif
 
 #include <sys/resource.h>
-
-#if defined(_GNU_SOURCE) && !defined(__USE_GNU)
-# define __USE_GNU
-#endif
-
 #include <sys/utsname.h>
 #include <sys/types.h>
 #include <sys/stat.h>
@@ -52,179 +45,16 @@
 #if HAVE_SYS_MKDEV_H
 # include <sys/mkdev.h>
 #endif
+#if HAVE_SYS_SYSMACROS_H
+# include <sys/sysmacros.h>
+#endif
 
 ZEND_DECLARE_MODULE_GLOBALS(posix)
 static PHP_MINFO_FUNCTION(posix);
 
-/* {{{ arginfo */
-ZEND_BEGIN_ARG_INFO_EX(arginfo_posix_kill, 0, 0, 2)
-	ZEND_ARG_INFO(0, pid)
-	ZEND_ARG_INFO(0, sig)
-ZEND_END_ARG_INFO()
-
-ZEND_BEGIN_ARG_INFO(arginfo_posix_getpid, 0)
-ZEND_END_ARG_INFO()
-
-ZEND_BEGIN_ARG_INFO(arginfo_posix_getppid, 0)
-ZEND_END_ARG_INFO()
-
-ZEND_BEGIN_ARG_INFO(arginfo_posix_getuid, 0)
-ZEND_END_ARG_INFO()
-
-ZEND_BEGIN_ARG_INFO_EX(arginfo_posix_setuid, 0, 0, 1)
-	ZEND_ARG_INFO(0, uid)
-ZEND_END_ARG_INFO()
-
-ZEND_BEGIN_ARG_INFO(arginfo_posix_geteuid, 0)
-ZEND_END_ARG_INFO()
-
-#ifdef HAVE_SETEUID
-ZEND_BEGIN_ARG_INFO_EX(arginfo_posix_seteuid, 0, 0, 1)
-	ZEND_ARG_INFO(0, uid)
-ZEND_END_ARG_INFO()
-#endif
-
-ZEND_BEGIN_ARG_INFO(arginfo_posix_getgid, 0)
-ZEND_END_ARG_INFO()
-
-ZEND_BEGIN_ARG_INFO_EX(arginfo_posix_setgid, 0, 0, 1)
-	ZEND_ARG_INFO(0, gid)
-ZEND_END_ARG_INFO()
-
-ZEND_BEGIN_ARG_INFO(arginfo_posix_getegid, 0)
-ZEND_END_ARG_INFO()
-
-#ifdef HAVE_SETEGID
-ZEND_BEGIN_ARG_INFO_EX(arginfo_posix_setegid, 0, 0, 1)
-	ZEND_ARG_INFO(0, gid)
-ZEND_END_ARG_INFO()
-#endif
-
-#ifdef HAVE_GETGROUPS
-ZEND_BEGIN_ARG_INFO(arginfo_posix_getgroups, 0)
-ZEND_END_ARG_INFO()
-#endif
-
-#ifdef HAVE_GETLOGIN
-ZEND_BEGIN_ARG_INFO(arginfo_posix_getlogin, 0)
-ZEND_END_ARG_INFO()
-#endif
-
-ZEND_BEGIN_ARG_INFO(arginfo_posix_getpgrp, 0)
-ZEND_END_ARG_INFO()
-
-#ifdef HAVE_SETSID
-ZEND_BEGIN_ARG_INFO(arginfo_posix_setsid, 0)
-ZEND_END_ARG_INFO()
-#endif
-
-ZEND_BEGIN_ARG_INFO_EX(arginfo_posix_setpgid, 0, 0, 2)
-	ZEND_ARG_INFO(0, pid)
-	ZEND_ARG_INFO(0, pgid)
-ZEND_END_ARG_INFO()
-
-#ifdef HAVE_GETPGID
-ZEND_BEGIN_ARG_INFO_EX(arginfo_posix_getpgid, 0, 0, 1)
-	ZEND_ARG_INFO(0, pid)
-ZEND_END_ARG_INFO()
-#endif
-
-#ifdef HAVE_GETSID
-ZEND_BEGIN_ARG_INFO_EX(arginfo_posix_getsid, 0, 0, 1)
-	ZEND_ARG_INFO(0, pid)
-ZEND_END_ARG_INFO()
-#endif
-
-ZEND_BEGIN_ARG_INFO(arginfo_posix_uname, 0)
-ZEND_END_ARG_INFO()
-
-ZEND_BEGIN_ARG_INFO(arginfo_posix_times, 0)
-ZEND_END_ARG_INFO()
-
-#ifdef HAVE_CTERMID
-ZEND_BEGIN_ARG_INFO(arginfo_posix_ctermid, 0)
-ZEND_END_ARG_INFO()
-#endif
-
-ZEND_BEGIN_ARG_INFO_EX(arginfo_posix_ttyname, 0, 0, 1)
-	ZEND_ARG_INFO(0, fd)
-ZEND_END_ARG_INFO()
-
-ZEND_BEGIN_ARG_INFO_EX(arginfo_posix_isatty, 0, 0, 1)
-	ZEND_ARG_INFO(0, fd)
-ZEND_END_ARG_INFO()
-
-ZEND_BEGIN_ARG_INFO(arginfo_posix_getcwd, 0)
-ZEND_END_ARG_INFO()
-
-#ifdef HAVE_MKFIFO
-ZEND_BEGIN_ARG_INFO_EX(arginfo_posix_mkfifo, 0, 0, 2)
-	ZEND_ARG_INFO(0, pathname)
-	ZEND_ARG_INFO(0, mode)
-ZEND_END_ARG_INFO()
-#endif
-
-#ifdef HAVE_MKNOD
-ZEND_BEGIN_ARG_INFO_EX(arginfo_posix_mknod, 0, 0, 2)
-	ZEND_ARG_INFO(0, pathname)
-	ZEND_ARG_INFO(0, mode)
-	ZEND_ARG_INFO(0, major)
-	ZEND_ARG_INFO(0, minor)
-ZEND_END_ARG_INFO()
-#endif
-
-ZEND_BEGIN_ARG_INFO_EX(arginfo_posix_access, 0, 0, 1)
-	ZEND_ARG_INFO(0, file)
-	ZEND_ARG_INFO(0, mode)
-ZEND_END_ARG_INFO()
-
-ZEND_BEGIN_ARG_INFO_EX(arginfo_posix_getgrnam, 0, 0, 1)
-	ZEND_ARG_INFO(0, name)
-ZEND_END_ARG_INFO()
-
-ZEND_BEGIN_ARG_INFO_EX(arginfo_posix_getgrgid, 0, 0, 1)
-	ZEND_ARG_INFO(0, gid)
-ZEND_END_ARG_INFO()
-
-ZEND_BEGIN_ARG_INFO_EX(arginfo_posix_getpwnam, 0, 0, 1)
-	ZEND_ARG_INFO(0, username)
-ZEND_END_ARG_INFO()
-
-ZEND_BEGIN_ARG_INFO_EX(arginfo_posix_getpwuid, 0, 0, 1)
-	ZEND_ARG_INFO(0, uid)
-ZEND_END_ARG_INFO()
-
-#ifdef HAVE_GETRLIMIT
-ZEND_BEGIN_ARG_INFO(arginfo_posix_getrlimit, 0)
-ZEND_END_ARG_INFO()
-#endif
-
-#ifdef HAVE_SETRLIMIT
-ZEND_BEGIN_ARG_INFO_EX(arginfo_posix_setrlimit, 0, 0, 3)
-	ZEND_ARG_INFO(0, resource)
-	ZEND_ARG_INFO(0, softlimit)
-	ZEND_ARG_INFO(0, hardlimit)
-ZEND_END_ARG_INFO()
-#endif
-
-ZEND_BEGIN_ARG_INFO(arginfo_posix_get_last_error, 0)
-ZEND_END_ARG_INFO()
-
-ZEND_BEGIN_ARG_INFO_EX(arginfo_posix_strerror, 0, 0, 1)
-	ZEND_ARG_INFO(0, errno)
-ZEND_END_ARG_INFO()
-
-#ifdef HAVE_INITGROUPS
-ZEND_BEGIN_ARG_INFO_EX(arginfo_posix_initgroups, 0, 0, 2)
-	ZEND_ARG_INFO(0, name)
-	ZEND_ARG_INFO(0, base_group_id)
-ZEND_END_ARG_INFO()
-#endif
-/* }}} */
-
 /* {{{ posix_functions[]
  */
-const zend_function_entry posix_functions[] = {
+static const zend_function_entry posix_functions[] = {
     /* POSIX.1, 3.3 */
 	PHP_FE(posix_kill,		arginfo_posix_kill)
 
@@ -306,7 +136,7 @@ const zend_function_entry posix_functions[] = {
 #endif
 
 	PHP_FE(posix_get_last_error,					arginfo_posix_get_last_error)
-	PHP_FALIAS(posix_errno, posix_get_last_error,	arginfo_posix_get_last_error)
+	PHP_FALIAS(posix_errno, posix_get_last_error,	arginfo_posix_errno)
 	PHP_FE(posix_strerror,							arginfo_posix_strerror)
 #ifdef HAVE_INITGROUPS
 	PHP_FE(posix_initgroups,	arginfo_posix_initgroups)
@@ -321,13 +151,16 @@ const zend_function_entry posix_functions[] = {
 static PHP_MINFO_FUNCTION(posix)
 {
 	php_info_print_table_start();
-	php_info_print_table_row(2, "Revision", "$Id$");
+	php_info_print_table_row(2, "POSIX support", "enabled");
 	php_info_print_table_end();
 }
 /* }}} */
 
 static PHP_GINIT_FUNCTION(posix) /* {{{ */
 {
+#if defined(COMPILE_DL_POSIX) && defined(ZTS)
+	ZEND_TSRMLS_CACHE_UPDATE();
+#endif
 	posix_globals->last_error = 0;
 }
 /* }}} */
@@ -431,6 +264,9 @@ zend_module_entry posix_module_entry = {
 /* }}} */
 
 #ifdef COMPILE_DL_POSIX
+#ifdef ZTS
+ZEND_TSRMLS_CACHE_DEFINE()
+#endif
 ZEND_GET_MODULE(posix)
 #endif
 
@@ -520,7 +356,7 @@ PHP_FUNCTION(posix_getegid)
 }
 /* }}} */
 
-/* {{{ proto bool posix_setuid(long uid)
+/* {{{ proto bool posix_setuid(int uid)
    Set user id (POSIX.1, 4.2.2) */
 PHP_FUNCTION(posix_setuid)
 {
@@ -536,7 +372,7 @@ PHP_FUNCTION(posix_setgid)
 }
 /* }}} */
 
-/* {{{ proto bool posix_seteuid(long uid)
+/* {{{ proto bool posix_seteuid(int uid)
    Set effective user id */
 #ifdef HAVE_SETEUID
 PHP_FUNCTION(posix_seteuid)
@@ -546,7 +382,7 @@ PHP_FUNCTION(posix_seteuid)
 #endif
 /* }}} */
 
-/* {{{ proto bool posix_setegid(long uid)
+/* {{{ proto bool posix_setegid(int uid)
    Set effective group id */
 #ifdef HAVE_SETEGID
 PHP_FUNCTION(posix_setegid)
@@ -767,7 +603,6 @@ static int php_posix_stream_get_fd(zval *zfp, int *fd) /* {{{ */
 	php_stream_from_zval_no_verify(stream, zfp);
 
 	if (stream == NULL) {
-		php_error_docref(NULL, E_WARNING, "expects argument 1 to be a valid stream resource");
 		return 0;
 	}
 	if (php_stream_can_cast(stream, PHP_STREAM_AS_FD_FOR_SELECT) == SUCCESS) {
@@ -805,8 +640,7 @@ PHP_FUNCTION(posix_ttyname)
 			}
 			break;
 		default:
-			convert_to_long_ex(z_fd);
-			fd = Z_LVAL_P(z_fd);
+			fd = zval_get_long(z_fd);
 	}
 #if defined(ZTS) && defined(HAVE_TTYNAME_R) && defined(_SC_TTY_NAME_MAX)
 	buflen = sysconf(_SC_TTY_NAME_MAX);
@@ -850,8 +684,7 @@ PHP_FUNCTION(posix_isatty)
 			}
 			break;
 		default:
-			convert_to_long_ex(z_fd);
-			fd = Z_LVAL_P(z_fd);
+			fd = zval_get_long(z_fd);
 	}
 
 	if (isatty(fd)) {
@@ -998,8 +831,15 @@ int php_posix_group_to_array(struct group *g, zval *array_group) /* {{{ */
 	} else {
 		add_assoc_null(array_group, "passwd");
 	}
-	for (count = 0; g->gr_mem[count] != NULL; count++) {
-		add_next_index_string(&array_members, g->gr_mem[count]);
+	for (count = 0;; count++) {
+		/* gr_mem entries may be misaligned on macos. */
+		char *gr_mem;
+		memcpy(&gr_mem, &g->gr_mem[count], sizeof(char *));
+		if (!gr_mem) {
+			break;
+		}
+
+		add_next_index_string(&array_members, gr_mem);
 	}
 	zend_hash_str_update(Z_ARRVAL_P(array_group), "members", sizeof("members")-1, &array_members);
 	add_assoc_long(array_group, "gid", g->gr_gid);
@@ -1082,9 +922,15 @@ PHP_FUNCTION(posix_getgrnam)
 		RETURN_FALSE;
 	}
 	buf = emalloc(buflen);
+try_again:
 	g = &gbuf;
 
 	if (getgrnam_r(name, g, buf, buflen, &g) || g == NULL) {
+		if (errno == ERANGE) {
+			buflen *= 2;
+			buf = erealloc(buf, buflen);
+			goto try_again;
+		}
 		POSIX_G(last_error) = errno;
 		efree(buf);
 		RETURN_FALSE;
@@ -1098,7 +944,7 @@ PHP_FUNCTION(posix_getgrnam)
 	array_init(return_value);
 
 	if (!php_posix_group_to_array(g, return_value)) {
-		zval_dtor(return_value);
+		zend_array_destroy(Z_ARR_P(return_value));
 		php_error_docref(NULL, E_WARNING, "unable to convert posix group to array");
 		RETVAL_FALSE;
 	}
@@ -1108,7 +954,7 @@ PHP_FUNCTION(posix_getgrnam)
 }
 /* }}} */
 
-/* {{{ proto array posix_getgrgid(long gid)
+/* {{{ proto array posix_getgrgid(int gid)
    Group database access (POSIX.1, 9.2.1) */
 PHP_FUNCTION(posix_getgrgid)
 {
@@ -1151,7 +997,7 @@ PHP_FUNCTION(posix_getgrgid)
 	array_init(return_value);
 
 	if (!php_posix_group_to_array(g, return_value)) {
-		zval_dtor(return_value);
+		zend_array_destroy(Z_ARR_P(return_value));
 		php_error_docref(NULL, E_WARNING, "unable to convert posix group struct to array");
 		RETVAL_FALSE;
 	}
@@ -1218,7 +1064,7 @@ PHP_FUNCTION(posix_getpwnam)
 	array_init(return_value);
 
 	if (!php_posix_passwd_to_array(pw, return_value)) {
-		zval_dtor(return_value);
+		zend_array_destroy(Z_ARR_P(return_value));
 		php_error_docref(NULL, E_WARNING, "unable to convert posix passwd struct to array");
 		RETVAL_FALSE;
 	}
@@ -1228,7 +1074,7 @@ PHP_FUNCTION(posix_getpwnam)
 }
 /* }}} */
 
-/* {{{ proto array posix_getpwuid(long uid)
+/* {{{ proto array posix_getpwuid(int uid)
    User database access (POSIX.1, 9.2.2) */
 PHP_FUNCTION(posix_getpwuid)
 {
@@ -1269,7 +1115,7 @@ PHP_FUNCTION(posix_getpwuid)
 	array_init(return_value);
 
 	if (!php_posix_passwd_to_array(pw, return_value)) {
-		zval_dtor(return_value);
+		zend_array_destroy(Z_ARR_P(return_value));
 		php_error_docref(NULL, E_WARNING, "unable to convert posix passwd struct to array");
 		RETVAL_FALSE;
 	}
@@ -1286,7 +1132,7 @@ PHP_FUNCTION(posix_getpwuid)
 
 /* {{{ posix_addlimit
  */
-static int posix_addlimit(int limit, char *name, zval *return_value) {
+static int posix_addlimit(int limit, const char *name, zval *return_value) {
 	int result;
 	struct rlimit rl;
 	char hard[80];
@@ -1319,9 +1165,9 @@ static int posix_addlimit(int limit, char *name, zval *return_value) {
 
 /* {{{ limits[]
  */
-struct limitlist {
+static const struct limitlist {
 	int limit;
-	char *name;
+	const char *name;
 } limits[] = {
 #ifdef RLIMIT_CORE
 	{ RLIMIT_CORE,	"core" },
@@ -1380,7 +1226,7 @@ struct limitlist {
    Get system resource consumption limits (This is not a POSIX function, but a BSDism and a SVR4ism. We compile conditionally) */
 PHP_FUNCTION(posix_getrlimit)
 {
-	struct limitlist *l = NULL;
+	const struct limitlist *l = NULL;
 
 	PHP_POSIX_NO_ARGS;
 
@@ -1388,7 +1234,7 @@ PHP_FUNCTION(posix_getrlimit)
 
 	for (l=limits; l->name; l++) {
 		if (posix_addlimit(l->limit, l->name, return_value) == FAILURE) {
-			zval_dtor(return_value);
+			zend_array_destroy(Z_ARR_P(return_value));
 			RETURN_FALSE;
 		}
 	}
@@ -1474,12 +1320,3 @@ PHP_FUNCTION(posix_initgroups)
 }
 /* }}} */
 #endif
-
-/*
- * Local variables:
- * tab-width: 4
- * c-basic-offset: 4
- * End:
- * vim600: sw=4 ts=4 fdm=marker
- * vim<600: sw=4 ts=4
- */

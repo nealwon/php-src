@@ -39,7 +39,7 @@ var_dump(fwrite($f, str_repeat('b', 3)));
 
 echo "should return previous chunk size (1)\n";
 var_dump(stream_set_chunk_size($f, 100));
-echo "should elicit 3 reads of size 100 (chunk size)\n";
+echo "should elicit one read of size 100 (chunk size)\n";
 var_dump(strlen(fread($f, 250)));
 echo "should elicit one read of size 100 (chunk size)\n";
 var_dump(strlen(fread($f, 50)));
@@ -51,8 +51,6 @@ var_dump(strlen(fwrite($f, str_repeat('b', 250))));
 echo "\nerror conditions\n";
 var_dump(stream_set_chunk_size($f, 0));
 var_dump(stream_set_chunk_size($f, -1));
-var_dump(stream_set_chunk_size($f, array()));
-
 --EXPECTF--
 bool(true)
 should return previous chunk size (8192)
@@ -67,15 +65,13 @@ write with size: 1
 int(3)
 should return previous chunk size (1)
 int(1)
-should elicit 3 reads of size 100 (chunk size)
-read with size: 100
-read with size: 100
-read with size: 100
-int(250)
 should elicit one read of size 100 (chunk size)
+read with size: 100
+int(100)
+should elicit one read of size 100 (chunk size)
+read with size: 100
 int(50)
 should elicit no read because there is sufficient cached data
-read with size: 100
 int(50)
 should elicit 2 writes of size 100 and one of size 50
 write with size: 100
@@ -89,7 +85,4 @@ Warning: stream_set_chunk_size(): The chunk size must be a positive integer, giv
 bool(false)
 
 Warning: stream_set_chunk_size(): The chunk size must be a positive integer, given -1 in %s on line %d
-bool(false)
-
-Warning: stream_set_chunk_size() expects parameter 2 to be integer, array given in %s on line %d
 bool(false)

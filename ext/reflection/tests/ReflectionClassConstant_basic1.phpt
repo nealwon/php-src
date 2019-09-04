@@ -53,13 +53,17 @@ reflectClassConstant($instance, "BAD_CONST");
 Reflecting on class constant TestClass::PUB
 
 __toString():
-string(38) "Constant [ public boolean PUB ] { 1 }
+string(35) "Constant [ public bool PUB ] { 1 }
 "
 export():
-string(38) "Constant [ public boolean PUB ] { 1 }
+
+Deprecated: Function ReflectionClassConstant::export() is deprecated in %s on line %d
+string(35) "Constant [ public bool PUB ] { 1 }
 "
 export():
-Constant [ public boolean PUB ] { 1 }
+
+Deprecated: Function ReflectionClassConstant::export() is deprecated in %s on line %d
+Constant [ public bool PUB ] { 1 }
 
 NULL
 getName():
@@ -73,7 +77,7 @@ bool(false)
 isProtected():
 bool(false)
 getModifiers():
-int(256)
+int(1)
 getDeclaringClass():
 object(ReflectionClass)#3 (1) {
   ["name"]=>
@@ -87,13 +91,17 @@ string(21) "/** My Doc comment */"
 Reflecting on class constant TestClass::PROT
 
 __toString():
-string(42) "Constant [ protected integer PROT ] { 4 }
+string(38) "Constant [ protected int PROT ] { 4 }
 "
 export():
-string(42) "Constant [ protected integer PROT ] { 4 }
+
+Deprecated: Function ReflectionClassConstant::export() is deprecated in %s on line %d
+string(38) "Constant [ protected int PROT ] { 4 }
 "
 export():
-Constant [ protected integer PROT ] { 4 }
+
+Deprecated: Function ReflectionClassConstant::export() is deprecated in %s on line %d
+Constant [ protected int PROT ] { 4 }
 
 NULL
 getName():
@@ -107,7 +115,7 @@ bool(false)
 isProtected():
 bool(true)
 getModifiers():
-int(512)
+int(2)
 getDeclaringClass():
 object(ReflectionClass)#3 (1) {
   ["name"]=>
@@ -124,9 +132,13 @@ __toString():
 string(45) "Constant [ private string PRIV ] { keepOut }
 "
 export():
+
+Deprecated: Function ReflectionClassConstant::export() is deprecated in %s on line %d
 string(45) "Constant [ private string PRIV ] { keepOut }
 "
 export():
+
+Deprecated: Function ReflectionClassConstant::export() is deprecated in %s on line %d
 Constant [ private string PRIV ] { keepOut }
 
 NULL
@@ -141,7 +153,7 @@ bool(true)
 isProtected():
 bool(false)
 getModifiers():
-int(1024)
+int(4)
 getDeclaringClass():
 object(ReflectionClass)#3 (1) {
   ["name"]=>
@@ -158,9 +170,13 @@ __toString():
 string(45) "Constant [ private string PRIV ] { keepOut }
 "
 export():
+
+Deprecated: Function ReflectionClassConstant::export() is deprecated in %s on line %d
 string(45) "Constant [ private string PRIV ] { keepOut }
 "
 export():
+
+Deprecated: Function ReflectionClassConstant::export() is deprecated in %s on line %d
 Constant [ private string PRIV ] { keepOut }
 
 NULL
@@ -175,7 +191,7 @@ bool(true)
 isProtected():
 bool(false)
 getModifiers():
-int(1024)
+int(4)
 getDeclaringClass():
 object(ReflectionClass)#3 (1) {
   ["name"]=>

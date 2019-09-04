@@ -2,7 +2,7 @@
    +----------------------------------------------------------------------+
    | PHP Version 7                                                        |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997-2017 The PHP Group                                |
+   | Copyright (c) The PHP Group                                          |
    +----------------------------------------------------------------------+
    | This source file is subject to version 3.01 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -16,8 +16,6 @@
    |         Wez Furlong <wez@thebrainroom.com>                           |
    +----------------------------------------------------------------------+
 */
-
-/* $Id$ */
 
 #ifndef _PHP_CURL_H
 #define _PHP_CURL_H
@@ -60,6 +58,9 @@ extern zend_module_entry curl_module_entry;
 #define PHP_CURL_RETURN 4
 #define PHP_CURL_IGNORE 7
 
+#define SAVE_CURL_ERROR(__handle, __err) \
+    do { (__handle)->err.no = (int) __err; } while (0)
+
 extern int  le_curl;
 #define le_curl_name "cURL handle"
 extern int  le_curl_multi_handle;
@@ -99,15 +100,11 @@ PHP_FUNCTION(curl_share_init);
 PHP_FUNCTION(curl_share_setopt);
 PHP_FUNCTION(curl_share_errno);
 
-#if LIBCURL_VERSION_NUM >= 0x070c00 /* 7.12.0 */
 PHP_FUNCTION(curl_strerror);
 PHP_FUNCTION(curl_multi_strerror);
 PHP_FUNCTION(curl_share_strerror);
-#endif
 
-#if LIBCURL_VERSION_NUM >= 0x070c01 /* 7.12.1 */
 PHP_FUNCTION(curl_reset);
-#endif
 
 #if LIBCURL_VERSION_NUM >= 0x070f04 /* 7.15.4 */
 PHP_FUNCTION(curl_escape);
@@ -154,9 +151,6 @@ typedef struct {
 	php_curl_write    *write;
 	php_curl_write    *write_header;
 	php_curl_read     *read;
-#if CURLOPT_PASSWDFUNCTION != 0
-	zval               passwd;
-#endif
 	zval               std_err;
 	php_curl_progress *progress;
 #if LIBCURL_VERSION_NUM >= 0x071500 /* Available since 7.21.0 */
@@ -176,6 +170,7 @@ struct _php_curl_send_headers {
 struct _php_curl_free {
 	zend_llist str;
 	zend_llist post;
+	zend_llist stream;
 	HashTable *slist;
 };
 

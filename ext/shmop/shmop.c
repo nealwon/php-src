@@ -2,7 +2,7 @@
    +----------------------------------------------------------------------+
    | PHP version 7                                                        |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997-2017 The PHP Group                                |
+   | Copyright (c) The PHP Group                                          |
    +----------------------------------------------------------------------+
    | This source file is subject to version 3.01 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -16,7 +16,6 @@
    |          Ilia Alshanetsky <ilia@prohost.org>                         |
    +----------------------------------------------------------------------+
  */
-/* $Id$ */
 
 #ifdef HAVE_CONFIG_H
 #include "config.h"
@@ -25,6 +24,8 @@
 #include "php.h"
 #include "php_ini.h"
 #include "php_shmop.h"
+#include "shmop_arginfo.h"
+
 # ifndef PHP_WIN32
 # include <sys/ipc.h>
 # include <sys/shm.h>
@@ -45,42 +46,9 @@ php_shmop_globals shmop_globals;
 
 int shm_type;
 
-/* {{{ arginfo */
-ZEND_BEGIN_ARG_INFO_EX(arginfo_shmop_open, 0, 0, 4)
-	ZEND_ARG_INFO(0, key)
-	ZEND_ARG_INFO(0, flags)
-	ZEND_ARG_INFO(0, mode)
-	ZEND_ARG_INFO(0, size)
-ZEND_END_ARG_INFO()
-
-ZEND_BEGIN_ARG_INFO_EX(arginfo_shmop_read, 0, 0, 3)
-	ZEND_ARG_INFO(0, shmid)
-	ZEND_ARG_INFO(0, start)
-	ZEND_ARG_INFO(0, count)
-ZEND_END_ARG_INFO()
-
-ZEND_BEGIN_ARG_INFO_EX(arginfo_shmop_close, 0, 0, 1)
-	ZEND_ARG_INFO(0, shmid)
-ZEND_END_ARG_INFO()
-
-ZEND_BEGIN_ARG_INFO_EX(arginfo_shmop_size, 0, 0, 1)
-	ZEND_ARG_INFO(0, shmid)
-ZEND_END_ARG_INFO()
-
-ZEND_BEGIN_ARG_INFO_EX(arginfo_shmop_write, 0, 0, 3)
-	ZEND_ARG_INFO(0, shmid)
-	ZEND_ARG_INFO(0, data)
-	ZEND_ARG_INFO(0, offset)
-ZEND_END_ARG_INFO()
-
-ZEND_BEGIN_ARG_INFO_EX(arginfo_shmop_delete, 0, 0, 1)
-	ZEND_ARG_INFO(0, shmid)
-ZEND_END_ARG_INFO()
-/* }}} */
-
 /* {{{ shmop_functions[]
  */
-const zend_function_entry shmop_functions[] = {
+static const zend_function_entry shmop_functions[] = {
 	PHP_FE(shmop_open, 		arginfo_shmop_open)
 	PHP_FE(shmop_read, 		arginfo_shmop_read)
 	PHP_FE(shmop_close, 	arginfo_shmop_close)
@@ -142,7 +110,7 @@ PHP_MINFO_FUNCTION(shmop)
 }
 /* }}} */
 
-/* {{{ proto resource shmop_open (int key, string flags, int mode, int size)
+/* {{{ proto resource shmop_open(int key, string flags, int mode, int size)
    gets and attaches a shared memory segment */
 PHP_FUNCTION(shmop_open)
 {
@@ -223,7 +191,7 @@ err:
 }
 /* }}} */
 
-/* {{{ proto string shmop_read (resource shmid, int start, int count)
+/* {{{ proto string shmop_read(resource shmid, int start, int count)
    reads from a shm segment */
 PHP_FUNCTION(shmop_read)
 {
@@ -239,7 +207,7 @@ PHP_FUNCTION(shmop_read)
 	}
 
 	if ((shmop = (struct php_shmop *)zend_fetch_resource(Z_RES_P(shmid), "shmop", shm_type)) == NULL) {
-		RETURN_FALSE;
+		return;
 	}
 
 	if (start < 0 || start > shmop->size) {
@@ -261,7 +229,7 @@ PHP_FUNCTION(shmop_read)
 }
 /* }}} */
 
-/* {{{ proto void shmop_close (resource shmid)
+/* {{{ proto void shmop_close(resource shmid)
    closes a shared memory segment */
 PHP_FUNCTION(shmop_close)
 {
@@ -274,14 +242,14 @@ PHP_FUNCTION(shmop_close)
 
 
 	if ((shmop = (struct php_shmop *)zend_fetch_resource(Z_RES_P(shmid), "shmop", shm_type)) == NULL) {
-		RETURN_FALSE;
+		return;
 	}
 
 	zend_list_close(Z_RES_P(shmid));
 }
 /* }}} */
 
-/* {{{ proto int shmop_size (resource shmid)
+/* {{{ proto int shmop_size(resource shmid)
    returns the shm size */
 PHP_FUNCTION(shmop_size)
 {
@@ -293,14 +261,14 @@ PHP_FUNCTION(shmop_size)
 	}
 
 	if ((shmop = (struct php_shmop *)zend_fetch_resource(Z_RES_P(shmid), "shmop", shm_type)) == NULL) {
-		RETURN_FALSE;
+		return;
 	}
 
 	RETURN_LONG(shmop->size);
 }
 /* }}} */
 
-/* {{{ proto int shmop_write (resource shmid, string data, int offset)
+/* {{{ proto int shmop_write(resource shmid, string data, int offset)
    writes to a shared memory segment */
 PHP_FUNCTION(shmop_write)
 {
@@ -315,7 +283,7 @@ PHP_FUNCTION(shmop_write)
 	}
 
 	if ((shmop = (struct php_shmop *)zend_fetch_resource(Z_RES_P(shmid), "shmop", shm_type)) == NULL) {
-		RETURN_FALSE;
+		return;
 	}
 
 	if ((shmop->shmatflg & SHM_RDONLY) == SHM_RDONLY) {
@@ -335,7 +303,7 @@ PHP_FUNCTION(shmop_write)
 }
 /* }}} */
 
-/* {{{ proto bool shmop_delete (resource shmid)
+/* {{{ proto bool shmop_delete(resource shmid)
    mark segment for deletion */
 PHP_FUNCTION(shmop_delete)
 {
@@ -347,7 +315,7 @@ PHP_FUNCTION(shmop_delete)
 	}
 
 	if ((shmop = (struct php_shmop *)zend_fetch_resource(Z_RES_P(shmid), "shmop", shm_type)) == NULL) {
-		RETURN_FALSE;
+		return;
 	}
 
 	if (shmctl(shmop->shmid, IPC_RMID, NULL)) {
@@ -360,12 +328,3 @@ PHP_FUNCTION(shmop_delete)
 /* }}} */
 
 #endif	/* HAVE_SHMOP */
-
-/*
- * Local variables:
- * tab-width: 4
- * c-basic-offset: 4
- * End:
- * vim600: sw=4 ts=4 fdm=marker
- * vim<600: sw=4 ts=4
- */

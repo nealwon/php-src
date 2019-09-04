@@ -5,6 +5,7 @@ opcache.enable=1
 opcache.enable_cli=1
 opcache.optimization_level=-1
 opcache.opt_debug_level=0x20000
+opcache.preload=
 --SKIPIF--
 <?php require_once('skipif.inc'); ?>
 --FILE--
@@ -32,6 +33,6 @@ L1 (3):     JMPZ CV0($x) L4
 L2 (4):     CV1($a) = QM_ASSIGN array(...)
 L3 (4):     JMP L5
 L4 (6):     CV1($a) = QM_ASSIGN array(...)
-L5 (8):     V2 = FETCH_DIM_R CV1($a) int(1)
-L6 (8):     ECHO V2
+L5 (8):     T2 = FETCH_DIM_R CV1($a) int(1)
+L6 (8):     ECHO T2
 L7 (9):     RETURN null
